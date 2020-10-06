@@ -165,7 +165,7 @@ const getCountryASNs = async (cc) => {
     
     const allASNs = activeASNs.concat(inactiveASNs).sort((a, b) => (parseInt(a) - parseInt(b)));
 
-    console.log(`Turkey:
+    console.log(`${COUNTRY_CODES[cc]}:
     ${activeASNs.length} Active ASNs
     ${inactiveASNs.length} Inactive ASNs
     ${allASNs.length} Total ASNs`);
