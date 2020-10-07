@@ -212,7 +212,7 @@ const main = () => {
                                 "choices": Object.values(COUNTRY_CODES)
                             }
                         ]);
-                        countryCode = getKeyByValue(countryPrompt.country);
+                        countryCode = getKeyByValue(COUNTRY_CODES, countryPrompt.country);
                         break;
                     case "Enter ISO-3166-1 alpha-2 code":
                         let alphaCodePrompt = await inquirer.prompt([
