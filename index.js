@@ -160,8 +160,8 @@ const getCountryASNs = async (cc) => {
     
     await processRIPEmessages(data.messages);
 
-    const activeASNs = (data.data.countries[0].routed && data.data.countries[0].routed !== "" ? getRegexGroupFromIndex(data.data.countries[0].routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b))) : []);
-    const inactiveASNs = (data.data.countries[0].non_routed && data.data.countries[0].non_routed !== "" ? getRegexGroupFromIndex(data.data.countries[0].non_routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b))) : []);
+    const activeASNs = (data.data.countries[0].routed && (data.data.countries[0].routed !== "" || data.data.countries[0].routed !== "set()") ? getRegexGroupFromIndex(data.data.countries[0].routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b))) : []);
+    const inactiveASNs = (data.data.countries[0].non_routed && (data.data.countries[0].non_routed !== "" || data.data.countries[0].non_routed !== "set()") ? getRegexGroupFromIndex(data.data.countries[0].non_routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b))) : []);
     
     const allASNs = activeASNs.concat(inactiveASNs).sort((a, b) => (parseInt(a) - parseInt(b)));
 
