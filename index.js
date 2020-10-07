@@ -160,8 +160,8 @@ const getCountryASNs = async (cc) => {
     
     await processRIPEmessages(data.messages);
 
-    const activeASNs = getRegexGroupFromIndex(data.data.countries[0].routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b)));
-    const inactiveASNs = getRegexGroupFromIndex(data.data.countries[0].non_routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b)));
+    const activeASNs = (data.data.countries[0].routed && data.data.countries[0].routed !== "" ? getRegexGroupFromIndex(data.data.countries[0].routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b))) : []);
+    const inactiveASNs = (data.data.countries[0].non_routed && data.data.countries[0].non_routed !== "" ? getRegexGroupFromIndex(data.data.countries[0].non_routed, COUNTRY_ASNS_REGEX, 2).sort((a, b) => (parseInt(a) - parseInt(b))) : []);
     
     const allASNs = activeASNs.concat(inactiveASNs).sort((a, b) => (parseInt(a) - parseInt(b)));
 
@@ -234,6 +234,11 @@ const main = () => {
 
                 let countryASNs = await getCountryASNs(countryCode);
                 let finalArr = [];
+                
+                if (countryASNs.allASNs.length === 0) {
+                    console.log(chalk.yellow("No ASNs found, quitting..."));
+                    return exit();
+                }
 
                 console.log(chalk.yellow("This process may take quite a while (and may even error) depending on country, get a coffee and do something else while this is running."));
                 progress.start(countryASNs.allASNs.length, 0);
