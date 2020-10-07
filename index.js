@@ -185,6 +185,7 @@ const main = () => {
     program
         .action(async () => {
             const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
+            let isProgressStarted = false;
             try {
                 let typePrompt = await inquirer.prompt([
                     {
@@ -207,7 +208,7 @@ const main = () => {
                             {
                                 "type": "list",
                                 "name": "country",
-                                "message": "Lütfen ilinizi seçin:",
+                                "message": "Please select the country:",
                                 "choices": Object.values(COUNTRY_CODES)
                             }
                         ]);
@@ -236,6 +237,7 @@ const main = () => {
 
                 console.log(chalk.yellow("This process may take quite a while (and may even error) depending on country, get a coffee and do something else while this is running."));
                 progress.start(countryASNs.allASNs.length, 0);
+                isProgressStarted = true;
 
                 for (const asn of countryASNs.activeASNs) {
                     const asnOrg = await getASNname(asn);
@@ -263,13 +265,13 @@ const main = () => {
 
                 finalArr = finalArr.sort((a, b) => (parseInt(a.asn) - parseInt(b.asn)));
 
-                fs.writeFileSync("./output.csv", createCSV(finalArr));
+                fs.writeFileSync(`./${countryCode.toUpperCase()}.csv`, createCSV(finalArr));
                 console.log(`
 ${chalk.green(`Processed ${finalArr.length} ASNs.`)}
-Saved to "output.csv".`);
+Saved to "${countryCode.toUpperCase()}.csv".`);
                 exit();
             } catch (e) {
-                progress.stop();
+                if (isProgressStarted) progress.stop();
                 if (e.type && e.type === "ripeStatError") {
                     exitWithRIPEerror(e);
                 } else {
