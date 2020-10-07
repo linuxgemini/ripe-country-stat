@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "description": "Get the IP prefix count stats for any country.",
     "engines": {
-        "node": ">=10"
+        "node": ">=12"
     },
     "preferGlobal": true,
     "bin": "./index.js",
