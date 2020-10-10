@@ -13,6 +13,7 @@
 const chalk = require("chalk");
 const cliProgress = require("cli-progress");
 const csvStringify = require("csv-stringify/lib/sync");
+const dns = require("dns").promises;
 const fetch = require("node-fetch");
 const fs = require("fs");
 const inquirer = require("inquirer");
@@ -36,6 +37,14 @@ const SCRIPT_NAME = "ripe-country-stat_js";
  */
 const COUNTRY_ASNS_REGEX = /{?(AsnSingle\()(\d+)(\),? ?)}?/g; // ASN is on $2
 const COUNTRY_CODES = require("./cc.json");
+const dnsresolver = new dns.Resolver();
+dnsresolver.setServers([
+    "1.1.1.1",
+    "1.0.0.1",
+    "2606:4700:4700::1111",
+    "2606:4700:4700::1001",
+    "9.9.9.9"
+]);
 let printedMessages = [];
 
 class ripeStatError extends Error {
@@ -58,6 +67,9 @@ const exit = () => {
     }, 1000);
 };
 
+/**
+ * @param {Error} err
+ */
 const exitWithError = (err) => {
     console.error("\n\nAn error occured!\n");
     if (err.stack) console.error(`\nStacktrace:\n${err.stack}\n`);
@@ -66,6 +78,9 @@ const exitWithError = (err) => {
     }, 1000);
 };
 
+/**
+ * @param {Error} err
+ */
 const exitWithRIPEerror = (err) => {
     console.error(`\n\nRIPEstat ${chalk.red("error")}: ${chalk.yellow(err.message)}`);
     return setTimeout(() => {
@@ -73,6 +88,11 @@ const exitWithRIPEerror = (err) => {
     }, 1000);
 };
 
+/**
+ * @param {string} apiURL
+ * @param {string} resource
+ * @param {{}|any} extraParams
+ */
 const generateURLWithQueryParams = (apiURL, resource, extraParams = {}) => {
     let qs = new URLSearchParams({
         resource,
@@ -95,14 +115,29 @@ const createCSV = (asnObjectArray) => {
     });
 };
 
+/**
+ * @param {string} str
+ * @param {RegExp} regexp
+ * @param {number} index
+ * @returns {string}
+ */
 const getRegexGroupFromIndex = (str, regexp, index) => {
     return Array.from(str.matchAll(regexp), match => match[index]);
 };
 
+/**
+ * @param {Object} object
+ * @param {any} value
+ * @returns {any}
+ */
 const getKeyByValue = (object, value) => {
     return Object.keys(object).find(key => object[key] === value);
 };
 
+/**
+ * @param {string[][]} bigArr
+ * @param {boolean} ignoreMsg
+ */
 const processRIPEmessages = async (bigArr, ignoreMsg = false) => {
     const caller = (new Error()).stack.split("\n")[2].trim().split(" ")[1];
     if (bigArr && bigArr.length !== 0) {
@@ -131,7 +166,23 @@ const processRIPEmessages = async (bigArr, ignoreMsg = false) => {
     return;
 };
 
-const getASNname = async (asn) => {
+/**
+ * @param {string} str
+ * @returns {string}
+ */
+const strStrip = (str) => {
+    const regexStart = /^\s+/;
+    const regexEnd = /\s+$/;
+
+    return str.replace(regexStart, "").replace(regexEnd, "");
+};
+
+/**
+ * @deprecated
+ * @param {string} asn
+ * @returns {string}
+ */
+const getASNname = async (asn) => { // eslint-disable-line no-unused-vars
     const raw = await fetch(generateURLWithQueryParams(RIPESTAT_AS_OVERVIEW_URL, asn));
     const data = await raw.json();
 
@@ -140,6 +191,21 @@ const getASNname = async (asn) => {
     return data.data.holder;
 };
 
+/**
+ * @param {string} asn
+ */
+const getASNnameOverDNS = async (asn) => {
+    const callDomain = `AS${asn}.asn.cymru.com`;
+    const reply = await dnsresolver.resolveTxt(callDomain);
+
+    let infoArray = strStrip(reply[0][0]).replace(/( \| )/g, "--||--").split("--||--");
+
+    return infoArray[4].slice(0,-4);
+};
+
+/**
+ * @param {string} asn
+ */
 const getOriginatedPrefixCount = async (asn) => {
     const raw = await fetch(generateURLWithQueryParams(RIPESTAT_RIS_PREFIXES_URL, asn));
     const data = await raw.json();
@@ -147,11 +213,16 @@ const getOriginatedPrefixCount = async (asn) => {
     await processRIPEmessages(data.messages, true);
 
     return {
+        /** @type {number} */
         prefixCount4: data.data.counts.v4.originating,
+        /** @type {number} */
         prefixCount6: data.data.counts.v6.originating
     };
 };
 
+/**
+ * @param {string} cc
+ */
 const getCountryASNs = async (cc) => {
     cc = cc.toUpperCase();
     console.log(`Getting ASN list of ${COUNTRY_CODES[cc]}...`);
@@ -171,8 +242,11 @@ const getCountryASNs = async (cc) => {
     ${allASNs.length} Total ASNs`);
 
     return {
+        /** @type {string[]} */
         activeASNs,
+        /** @type {string[]} */
         inactiveASNs,
+        /** @type {string[]} */
         allASNs
     };
 };
@@ -245,7 +319,7 @@ const main = () => {
                 isProgressStarted = true;
 
                 for (const asn of countryASNs.activeASNs) {
-                    const asnOrg = await getASNname(asn);
+                    const asnOrg = await getASNnameOverDNS(asn);
                     const prefixes = await getOriginatedPrefixCount(asn);
                     finalArr.push({
                         asn,
@@ -256,7 +330,7 @@ const main = () => {
                 }
 
                 for (const asn of countryASNs.inactiveASNs) {
-                    const asnOrg = await getASNname(asn);
+                    const asnOrg = await getASNnameOverDNS(asn);
                     finalArr.push({
                         asn,
                         asnOrg,
