@@ -18,6 +18,7 @@ const fetch = require("node-fetch");
 const fs = require("fs");
 const inquirer = require("inquirer");
 const program = require("commander");
+const { promisify } = require("util");
 
 /*
  * API Endpoint Constants
@@ -46,6 +47,7 @@ dnsresolver.setServers([
     "9.9.9.9"
 ]);
 let printedMessages = [];
+let processStamp = 0;
 
 class ripeStatError extends Error {
     constructor(errmessage = "no message provided.", ...params) {
@@ -87,6 +89,11 @@ const exitWithRIPEerror = (err) => {
         process.exit(0);
     }, 1000);
 };
+
+/**
+ * @param {number} ms
+ */
+const sleep = promisify(setTimeout);
 
 /**
  * @param {string} apiURL
@@ -184,6 +191,10 @@ const strStrip = (str) => {
  */
 const getASNname = async (asn) => { // eslint-disable-line no-unused-vars
     const raw = await fetch(generateURLWithQueryParams(RIPESTAT_AS_OVERVIEW_URL, asn));
+    if (!raw.ok) {
+        const errData = await raw.text();
+        throw new ripeStatError(`${raw.status}\n\n${errData}`);
+    }
     const data = await raw.json();
 
     await processRIPEmessages(data.messages);
@@ -208,6 +219,10 @@ const getASNnameOverDNS = async (asn) => {
  */
 const getOriginatedPrefixCount = async (asn) => {
     const raw = await fetch(generateURLWithQueryParams(RIPESTAT_RIS_PREFIXES_URL, asn));
+    if (!raw.ok) {
+        const errData = await raw.text();
+        throw new ripeStatError(`${raw.status}\n\n${errData}`);
+    }
     const data = await raw.json();
 
     await processRIPEmessages(data.messages, true);
@@ -227,6 +242,10 @@ const getCountryASNs = async (cc) => {
     cc = cc.toUpperCase();
     console.log(`Getting ASN list of ${COUNTRY_CODES[cc]}...`);
     const raw = await fetch(generateURLWithQueryParams(RIPESTAT_COUNTRY_ASNS_URL, cc, { lod: 1 }));
+    if (!raw.ok) {
+        const errData = await raw.text();
+        throw new ripeStatError(`${raw.status}\n\n${errData}`);
+    }
     const data = await raw.json();
     
     await processRIPEmessages(data.messages);
@@ -237,9 +256,9 @@ const getCountryASNs = async (cc) => {
     const allASNs = activeASNs.concat(inactiveASNs).sort((a, b) => (parseInt(a) - parseInt(b)));
 
     console.log(`${COUNTRY_CODES[cc]}:
-    ${activeASNs.length} Active ASNs
-    ${inactiveASNs.length} Inactive ASNs
-    ${allASNs.length} Total ASNs`);
+  ${activeASNs.length} Active ASNs
+  ${inactiveASNs.length} Inactive ASNs
+  ${allASNs.length} Total ASNs`);
 
     return {
         /** @type {string[]} */
@@ -319,6 +338,7 @@ const main = () => {
                 isProgressStarted = true;
 
                 for (const asn of countryASNs.activeASNs) {
+                    processStamp = Date.now();
                     const asnOrg = await getASNnameOverDNS(asn);
                     const prefixes = await getOriginatedPrefixCount(asn);
                     finalArr.push({
@@ -327,6 +347,7 @@ const main = () => {
                         ...prefixes
                     });
                     progress.increment(1);
+                    await sleep(Date.now() - processStamp);
                 }
 
                 for (const asn of countryASNs.inactiveASNs) {
